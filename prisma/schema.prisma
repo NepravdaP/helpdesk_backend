@@ -1,0 +1,237 @@
+// ИС управления IT-инфраструктурой — схема БД.
+// Модель выверена по типам фронтенда (src/types/index.ts) — это контракт API.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Перечисления ───────────────────────────
+
+enum Role {
+  employee
+  it
+  admin
+  superadmin
+}
+
+enum TicketStatus {
+  request // заявка (новая)
+  open // в работе
+  clarification // на уточнении
+  closed // закрыта
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+}
+
+enum EquipmentStatus {
+  in_use
+  repair
+  decommissioned
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+}
+
+enum ActivityKind {
+  created
+  status
+  assignee
+  comment
+  edited
+}
+
+// ─────────────────────────── Пользователи ───────────────────────────
+// Профиль приходит из LDAP/AD; роль выводится из групп AD при входе.
+
+model User {
+  id                Int      @id @default(autoincrement())
+  userName          String   @unique // sAMAccountName / UPN
+  ldapDn            String?  // DN в каталоге (для справки/синхронизации)
+  role              Role     @default(employee)
+  firstName         String
+  lastName          String
+  middleName        String?
+  fullName          String // displayName: «Фамилия Имя Отчество»
+  email             String   @unique
+  innerPhone        String?
+  mobilePhone       String?
+  room              String?
+  avatarUrl         String?
+  orgName           String? // company
+  orgDepartment     String? // department
+  orgDivision       String? // division
+  orgTitle          String? // title (должность)
+  canManageBookings Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  createdTickets   Ticket[]        @relation("ticketCreatedBy")
+  assignedTickets  Ticket[]        @relation("ticketAssignedTo")
+  ownedEquipment   Equipment[]     @relation("equipmentAssignedTo")
+  bookings         Booking[]
+  authoredActivity ActivityEntry[] @relation("activityAuthor")
+  assigneeActivity ActivityEntry[] @relation("activityAssignee")
+
+  @@index([orgDepartment])
+  @@map("users")
+}
+
+// ─────────────────────────── HelpDesk ───────────────────────────
+
+model Ticket {
+  id          Int            @id @default(autoincrement())
+  title       String
+  description String
+  type        String // ключ типа заявки (см. TicketType.key) — конфигурируемый
+  priority    TicketPriority
+  status      TicketStatus   @default(request)
+  createdById Int
+  assignedToId Int?
+  equipmentId Int?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  createdBy  User            @relation("ticketCreatedBy", fields: [createdById], references: [id])
+  assignedTo User?           @relation("ticketAssignedTo", fields: [assignedToId], references: [id])
+  equipment  Equipment?      @relation(fields: [equipmentId], references: [id])
+  activity   ActivityEntry[]
+
+  @@index([status])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@map("tickets")
+}
+
+model ActivityEntry {
+  id         Int          @id @default(autoincrement())
+  ticketId   Int
+  kind       ActivityKind
+  authorId   Int
+  status     TicketStatus? // для kind = status
+  assigneeId Int? // для kind = assignee (кого назначили; null = снятие)
+  comment    String? // для kind = comment
+  createdAt  DateTime     @default(now())
+
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author   User   @relation("activityAuthor", fields: [authorId], references: [id])
+  assignee User?  @relation("activityAssignee", fields: [assigneeId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_activity")
+}
+
+// ─────────────────────────── Инвентаризация ───────────────────────────
+
+model Equipment {
+  id            Int             @id @default(autoincrement())
+  inventoryNo   String          @unique
+  type          String // ключ типа актива (см. AssetType.key)
+  model         String
+  serialNumber  String
+  status        EquipmentStatus @default(in_use)
+  location      String
+  warrantyUntil DateTime?
+  assignedToId  Int?
+  attributes    Json            @default("{}") // зависящие от типа поля (MAC, IP…)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  assignedTo User?    @relation("equipmentAssignedTo", fields: [assignedToId], references: [id])
+  tickets    Ticket[]
+
+  @@index([type])
+  @@index([status])
+  @@map("equipment")
+}
+
+// ─────────────────────────── Бронирование ───────────────────────────
+
+model Room {
+  id        Int       @id @default(autoincrement())
+  name      String
+  capacity  Int
+  equipment String[]  @default([]) // оснащение зала (строки)
+  isActive  Boolean   @default(true)
+  bookings  Booking[]
+
+  @@map("rooms")
+}
+
+model Booking {
+  id        Int           @id @default(autoincrement())
+  roomId    Int
+  userId    Int
+  startTime DateTime
+  endTime   DateTime
+  purpose   String
+  status    BookingStatus @default(confirmed)
+  createdAt DateTime      @default(now())
+
+  room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([roomId, startTime, endTime])
+  @@map("bookings")
+}
+
+// ─────────────────────────── Конфигурация (суперадмин) ───────────────────────────
+
+model Service {
+  id          Int          @id @default(autoincrement())
+  key         String       @unique
+  name        String
+  sortOrder   Int          @default(0)
+  ticketTypes TicketType[]
+
+  @@map("services")
+}
+
+model TicketType {
+  id        Int     @id @default(autoincrement())
+  key       String  @unique
+  name      String
+  slaHours  Int
+  serviceId Int
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_types")
+}
+
+model AssetType {
+  id         Int                  @id @default(autoincrement())
+  key        String               @unique
+  name       String
+  attributes AssetTypeAttribute[]
+
+  @@map("asset_types")
+}
+
+model AssetTypeAttribute {
+  id          Int       @id @default(autoincrement())
+  assetTypeId Int
+  key         String
+  label       String
+  assetType   AssetType @relation(fields: [assetTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([assetTypeId, key])
+  @@map("asset_type_attributes")
+}
+
+model PositionWeight {
+  id     Int    @id @default(autoincrement())
+  title  String @unique
+  weight Int
+
+  @@map("position_weights")
+}
