@@ -1,0 +1,24 @@
+name: Deploy backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest code
+        working-directory: /opt/helpdesk/backend
+        run: git pull origin main
+
+      - name: Rebuild backend container
+        working-directory: /opt/helpdesk
+        run: |
+          docker compose build backend
+          docker compose up -d --force-recreate backend
+
+      - name: Show status
+        working-directory: /opt/helpdesk
+        run: docker compose ps backend
