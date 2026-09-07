@@ -26,6 +26,14 @@ const assetSchema = z.object({
   attributes: z.record(z.string(), z.string()).default({}),
 });
 
+// GET /api/assets/options — лёгкий список для выпадающих списков (без права assets.view).
+assetsRouter.get(
+  "/options",
+  asyncHandler(async (_req, res) => {
+    res.json(await svc.listAssetOptions());
+  }),
+);
+
 // GET /api/assets — список техники.
 assetsRouter.get(
   "/",

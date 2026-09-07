@@ -4,47 +4,12 @@ import { signToken } from "../../lib/jwt.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../middleware/error.js";
 import { ldapAuthenticate } from "../../services/ldap.js";
+import { upsertUserFromLdap } from "../users/users.service.js";
 import { mapUser, type UserDto } from "../../lib/serialize.js";
 
 export interface LoginResult {
   token: string;
   user: UserDto;
-}
-
-// Синхронизирует профиль из AD в БД (создаёт или обновляет).
-async function upsertFromLdap(p: Awaited<ReturnType<typeof ldapAuthenticate>>): Promise<User> {
-  return prisma.user.upsert({
-    where: { userName: p.userName },
-    create: {
-      userName: p.userName,
-      ldapDn: p.dn,
-      role: p.role,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      fullName: p.fullName,
-      email: p.email,
-      orgName: p.orgName,
-      orgDepartment: p.orgDepartment,
-      orgDivision: p.orgDivision,
-      orgTitle: p.orgTitle,
-      canManageBookings: p.canManageBookings,
-    },
-    update: {
-      ldapDn: p.dn,
-      role: p.role,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      fullName: p.fullName,
-      email: p.email,
-      orgName: p.orgName,
-      orgDepartment: p.orgDepartment,
-      orgDivision: p.orgDivision,
-      orgTitle: p.orgTitle,
-      // canManageBookings из AD не перетираем, если он назначается вручную суперадмином:
-      // обновляем только когда группа явно настроена.
-      ...(env.LDAP_GROUP_BOOKING_MANAGERS ? { canManageBookings: p.canManageBookings } : {}),
-    },
-  });
 }
 
 export async function login(userName: string, password: string): Promise<LoginResult> {
@@ -59,7 +24,8 @@ export async function login(userName: string, password: string): Promise<LoginRe
     const profile = await ldapAuthenticate(userName, password).catch((e) => {
       throw new AppError(401, `Ошибка входа: ${e instanceof Error ? e.message : "LDAP"}`);
     });
-    user = await upsertFromLdap(profile);
+    // Апсёрт — общая функция с массовой синхронизацией (modules/users/users.service.ts).
+    ({ user } = await upsertUserFromLdap(profile));
   }
 
   const token = signToken({ sub: user.id, role: user.role, userName: user.userName });

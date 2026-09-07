@@ -21,6 +21,14 @@ const schema = z.object({
   LDAP_GROUP_IT: z.string().default(""),
   LDAP_GROUP_BOOKING_MANAGERS: z.string().default(""),
 
+  // Массовая синхронизация каталога (Конфигурация → LDAP → «Синхронизировать»).
+  // Отдельная сервисная учётка с правом чтения каталога (bind по полному DN, не по шаблону логина).
+  // Если не задана — синхронизация попробует анонимный bind (подходит только для тестовых каталогов).
+  LDAP_SYNC_BIND_DN: z.string().default(""),
+  LDAP_SYNC_BIND_PASSWORD: z.string().default(""),
+  // Фильтр выборки всех учётных записей сотрудников (без {username} — это не поиск одного человека).
+  LDAP_SYNC_FILTER: z.string().default("(&(objectClass=user)(objectCategory=person))"),
+
   AUTH_DEV_BYPASS: z
     .enum(["true", "false"])
     .default("false")

@@ -36,6 +36,15 @@ export async function listAssets(): Promise<EquipmentDto[]> {
   return rows.map(mapEquipment);
 }
 
+// Лёгкий список для выпадающих списков (доступен всем аутентифицированным).
+export async function listAssetOptions(): Promise<{ value: number; label: string }[]> {
+  const rows = (await prisma.equipment.findMany({
+    orderBy: { inventoryNo: "asc" },
+    select: { id: true, model: true, location: true },
+  })) as { id: number; model: string; location: string }[];
+  return rows.map((e) => ({ value: e.id, label: `${e.model} — ${e.location}` }));
+}
+
 export async function createAsset(input: AssetInput): Promise<EquipmentDto> {
   const row = await prisma.equipment.create({ data: toData(input) });
   return mapEquipment(row);

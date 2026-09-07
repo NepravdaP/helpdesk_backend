@@ -117,6 +117,21 @@ async function main() {
     data: Object.entries(positionWeights).map(([title, weight]) => ({ title, weight })),
   });
 
+  // Переговорные и пара броней.
+  await prisma.room.createMany({
+    data: [
+      { id: 1, name: "Переговорная «Нева»", capacity: 8, equipment: ["Проектор", "Маркерная доска", "ВКС"] },
+      { id: 2, name: "Переговорная «Волга»", capacity: 14, equipment: ["ТВ-панель", "ВКС", "Флипчарт"] },
+      { id: 3, name: "Малая переговорная", capacity: 4, equipment: ["ТВ-панель"] },
+    ],
+  });
+  await prisma.booking.createMany({
+    data: [
+      { id: 1, roomId: 1, userId: 8, startTime: new Date("2026-06-23T06:00:00Z"), endTime: new Date("2026-06-23T07:00:00Z"), purpose: "Планёрка отдела ИТ", status: "confirmed" },
+      { id: 2, roomId: 2, userId: 3, startTime: new Date("2026-06-23T10:00:00Z"), endTime: new Date("2026-06-23T11:30:00Z"), purpose: "Совещание по бюджету", status: "confirmed" },
+    ],
+  });
+
   // Заявки + стартовая лента действий (повторяет seedActivity на фронте).
   for (const t of tickets) {
     await prisma.ticket.create({
@@ -143,6 +158,8 @@ async function main() {
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('users','id'), (SELECT MAX(id) FROM "users"))`);
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('equipment','id'), (SELECT MAX(id) FROM "equipment"))`);
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('tickets','id'), (SELECT MAX(id) FROM "tickets"))`);
+  await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('rooms','id'), (SELECT MAX(id) FROM "rooms"))`);
+  await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('bookings','id'), (SELECT MAX(id) FROM "bookings"))`);
 
   console.log("✅ Сид завершён: пользователи, техника, заявки, конфиг.");
 }

@@ -58,3 +58,12 @@ usersRouter.patch(
     res.json(await svc.setBookingManager(parseId(req.params.id), value));
   }),
 );
+
+// POST /api/users/ldap-sync — обойти каталог целиком и завести/обновить пользователей (config.manage).
+usersRouter.post(
+  "/ldap-sync",
+  requireCapability("config.manage"),
+  asyncHandler(async (_req, res) => {
+    res.json(await svc.syncUsersFromLdap());
+  }),
+);

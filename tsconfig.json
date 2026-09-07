@@ -13,8 +13,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
+    "declaration": false,
     "sourceMap": true,
+    "composite": true,
     "incremental": true
   },
   "include": ["src/**/*.ts", "prisma/**/*.ts"]

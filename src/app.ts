@@ -6,6 +6,9 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { ticketsRouter } from "./modules/tickets/tickets.routes.js";
 import { assetsRouter } from "./modules/assets/assets.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
+import { bookingRouter } from "./modules/booking/booking.routes.js";
+import { configRouter } from "./modules/config/config.routes.js";
+import { reportsRouter } from "./modules/reports/reports.routes.js";
 
 export function createApp() {
   const app = express();
@@ -23,6 +26,9 @@ export function createApp() {
   app.use("/api/tickets", ticketsRouter);
   app.use("/api/assets", assetsRouter);
   app.use("/api/users", usersRouter);
+  app.use("/api/booking", bookingRouter);
+  app.use("/api/config", configRouter);
+  app.use("/api/reports", reportsRouter);
 
   // 404 и обработчик ошибок — в конце.
   app.use(notFound);
