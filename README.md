@@ -75,9 +75,27 @@ HelpDesk (Bearer-токен обязателен):
 - `PATCH  /api/users/:id` — редактировать профиль (`users.edit`); флаг `canManageBookings` применяется только при праве `booking.assignManagers`
 - `PATCH  /api/users/:id/booking-manager` — назначить управляющего бронями (`booking.assignManagers`)
 
+Бронирование (Bearer-токен обязателен):
+- `GET    /api/booking/rooms` — переговорные (`booking.view`)
+- `GET    /api/booking/bookings?from&to&roomId` — брони с фильтром (`booking.view`)
+- `POST   /api/booking/bookings` — создать (транзакция против пересечений; за другого — `canManageBookings`)
+- `PATCH  /api/booking/bookings/:id/cancel` — отменить (свою или любую при `canManageBookings`)
+
+Конфигуратор:
+- `GET    /api/config` — справочные данные (все аутентифицированные)
+- `PUT    /api/config/services` — заменить сервисы/типы (`config.manage`)
+- `PUT    /api/config/position-weights` — заменить веса должностей (`config.manage`)
+- `PUT    /api/config/asset-types` — заменить типы активов (`config.manage`)
+
+Отчёты:
+- `GET    /api/reports/summary` — сводка по заявкам/технике/броням (`reports.view`)
+
+Опции для выпадающих списков:
+- `GET    /api/assets/options` — лёгкий список техники (все аутентифицированные)
+
 Служебное: `GET /api/health`.
 
-## Дальше по плану
-Модули по тому же паттерну: Бронирование (с транзакцией против пересечений),
-Конфигуратор (суперадмин), Отчёты.
+## Состав модулей
+HelpDesk · Инвентаризация · Пользователи/Справочник · Бронирование ·
+Конфигуратор · Отчёты — все на едином модульном монолите с общими БД-транзакциями.
 ```

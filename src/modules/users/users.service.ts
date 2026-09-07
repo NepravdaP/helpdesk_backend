@@ -3,6 +3,8 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../middleware/error.js";
 import { can } from "../../auth/permissions.js";
 import { mapUser, type UserDto } from "../../lib/serialize.js";
+import { env } from "../../config/env.js";
+import { ldapSyncAll, type LdapProfile } from "../../services/ldap.js";
 
 export interface UserUpdateInput {
   firstName: string;
@@ -66,4 +68,79 @@ export async function setBookingManager(id: number, value: boolean): Promise<Use
   if (!exists) throw new AppError(404, "Пользователь не найден");
   const row = await prisma.user.update({ where: { id }, data: { canManageBookings: value } });
   return mapUser(row);
+}
+
+// Единая точка апсёрта профиля из AD в БД — используется и при входе одного
+// пользователя (auth.service), и при массовой синхронизации (ниже).
+export async function upsertUserFromLdap(p: LdapProfile): Promise<{ user: User; created: boolean }> {
+  const existing = await prisma.user.findUnique({ where: { userName: p.userName }, select: { id: true } });
+
+  const user = await prisma.user.upsert({
+    where: { userName: p.userName },
+    create: {
+      userName: p.userName,
+      ldapDn: p.dn,
+      role: p.role,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      middleName: p.middleName ?? null,
+      fullName: p.fullName,
+      email: p.email,
+      orgName: p.orgName,
+      orgDepartment: p.orgDepartment,
+      orgDivision: p.orgDivision,
+      orgTitle: p.orgTitle,
+      canManageBookings: p.canManageBookings,
+    },
+    update: {
+      ldapDn: p.dn,
+      role: p.role,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      middleName: p.middleName ?? null,
+      fullName: p.fullName,
+      email: p.email,
+      orgName: p.orgName,
+      orgDepartment: p.orgDepartment,
+      orgDivision: p.orgDivision,
+      orgTitle: p.orgTitle,
+      // canManageBookings из AD не перетираем, если он назначается вручную суперадмином:
+      // обновляем только когда группа явно настроена.
+      ...(env.LDAP_GROUP_BOOKING_MANAGERS ? { canManageBookings: p.canManageBookings } : {}),
+    },
+  });
+
+  return { user, created: !existing };
+}
+
+export interface LdapSyncResult {
+  created: number;
+  updated: number;
+  skipped: number; // записи каталога без sAMAccountName — сопоставить с моделью нечем
+  errors: string[]; // логин + причина, если апсёрт конкретного профиля не удался (например, конфликт email)
+}
+
+// Массовая синхронизация: обходит весь каталог и заводит/обновляет пользователей в БД.
+export async function syncUsersFromLdap(): Promise<LdapSyncResult> {
+  if (!env.LDAP_URL) {
+    throw new AppError(400, "LDAP не настроен: заполните LDAP_URL и LDAP_SEARCH_BASE в .env");
+  }
+
+  const { profiles, skipped } = await ldapSyncAll();
+
+  let created = 0;
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const p of profiles) {
+    try {
+      const { created: wasCreated } = await upsertUserFromLdap(p);
+      if (wasCreated) created += 1;
+      else updated += 1;
+    } catch (e) {
+      errors.push(`${p.userName}: ${e instanceof Error ? e.message : "неизвестная ошибка"}`);
+    }
+  }
+
+  return { created, updated, skipped, errors };
 }
