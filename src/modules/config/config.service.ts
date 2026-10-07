@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 
 // Формы конфигурации совпадают с ConfigContext фронтенда.
@@ -72,7 +73,7 @@ interface AssetTypeRow {
 // Замена секций целиком (как setServices/setWeights/setAssetTypes на фронте).
 
 export async function replaceServices(services: ServiceConfig[]): Promise<FullConfig> {
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.ticketType.deleteMany();
     await tx.service.deleteMany();
     for (let i = 0; i < services.length; i++) {
@@ -93,7 +94,7 @@ export async function replaceServices(services: ServiceConfig[]): Promise<FullCo
 }
 
 export async function replaceWeights(weights: PositionWeightConfig[]): Promise<FullConfig> {
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.positionWeight.deleteMany();
     if (weights.length > 0) {
       await tx.positionWeight.createMany({
@@ -105,7 +106,7 @@ export async function replaceWeights(weights: PositionWeightConfig[]): Promise<F
 }
 
 export async function replaceAssetTypes(assetTypes: AssetTypeConfig[]): Promise<FullConfig> {
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.assetTypeAttribute.deleteMany();
     await tx.assetType.deleteMany();
     for (const a of assetTypes) {

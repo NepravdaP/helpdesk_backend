@@ -52,12 +52,12 @@ export async function getSummary(): Promise<ReportSummary> {
     bookingsUpcoming,
   ] = await Promise.all([
     prisma.ticket.count(),
-    prisma.ticket.groupBy({ by: ["status"], _count: { _all: true } }) as Promise<Group[]>,
-    prisma.ticket.groupBy({ by: ["priority"], _count: { _all: true } }) as Promise<Group[]>,
-    prisma.ticket.groupBy({ by: ["type"], _count: { _all: true } }) as Promise<Group[]>,
+    prisma.ticket.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.ticket.groupBy({ by: ["priority"], _count: { _all: true } }),
+    prisma.ticket.groupBy({ by: ["type"], _count: { _all: true } }),
     prisma.equipment.count(),
-    prisma.equipment.groupBy({ by: ["status"], _count: { _all: true } }) as Promise<Group[]>,
-    prisma.equipment.groupBy({ by: ["type"], _count: { _all: true } }) as Promise<Group[]>,
+    prisma.equipment.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.equipment.groupBy({ by: ["type"], _count: { _all: true } }),
     prisma.booking.count({ where: { status: "confirmed", endTime: { gt: new Date() } } }),
   ]);
 
