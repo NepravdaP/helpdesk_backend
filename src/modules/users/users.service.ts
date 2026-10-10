@@ -3,8 +3,7 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../middleware/error.js";
 import { can } from "../../auth/permissions.js";
 import { mapUser, type UserDto } from "../../lib/serialize.js";
-import { env } from "../../config/env.js";
-import { ldapSyncAll, type LdapProfile } from "../../services/ldap.js";
+import { describeLdapError, ldapSyncAll, type LdapProfile } from "../../services/ldap.js";
 
 export interface UserUpdateInput {
   firstName: string;
@@ -106,7 +105,7 @@ export async function upsertUserFromLdap(p: LdapProfile): Promise<{ user: User; 
       orgTitle: p.orgTitle,
       // canManageBookings из AD не перетираем, если он назначается вручную суперадмином:
       // обновляем только когда группа явно настроена.
-      ...(env.LDAP_GROUP_BOOKING_MANAGERS ? { canManageBookings: p.canManageBookings } : {}),
+      ...(p.bookingGroupConfigured ? { canManageBookings: p.canManageBookings } : {}),
     },
   });
 
@@ -122,11 +121,9 @@ export interface LdapSyncResult {
 
 // Массовая синхронизация: обходит весь каталог и заводит/обновляет пользователей в БД.
 export async function syncUsersFromLdap(): Promise<LdapSyncResult> {
-  if (!env.LDAP_URL) {
-    throw new AppError(400, "LDAP не настроен: заполните LDAP_URL и LDAP_SEARCH_BASE в .env");
-  }
-
-  const { profiles, skipped } = await ldapSyncAll();
+  const { profiles, skipped } = await ldapSyncAll().catch((e) => {
+    throw new AppError(400, `Ошибка обращения к каталогу: ${describeLdapError(e)}`);
+  });
 
   let created = 0;
   let updated = 0;
