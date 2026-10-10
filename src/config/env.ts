@@ -29,6 +29,14 @@ const schema = z.object({
   // Фильтр выборки всех учётных записей сотрудников (без {username} — это не поиск одного человека).
   LDAP_SYNC_FILTER: z.string().default("(&(objectClass=user)(objectCategory=person))"),
 
+  // ── Рабочий график для SLA ──
+  // Часы SLA считаются только в рабочее время. Для круглосуточной поддержки:
+  // SLA_WORK_DAYS=1,2,3,4,5,6,7 SLA_WORK_START=00:00 SLA_WORK_END=24:00
+  SLA_TIMEZONE: z.string().default("Europe/Moscow"),
+  SLA_WORK_DAYS: z.string().default("1,2,3,4,5"), // ISO: 1 — понедельник … 7 — воскресенье
+  SLA_WORK_START: z.string().default("09:00"),
+  SLA_WORK_END: z.string().default("18:00"),
+
   AUTH_DEV_BYPASS: z
     .enum(["true", "false"])
     .default("false")

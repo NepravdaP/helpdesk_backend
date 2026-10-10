@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { slaInfo, type SlaInfo } from "../../services/sla.js";
 
 // Include для заявки со связанными именами (как ждёт TicketRow на фронте).
 export const ticketInclude = {
@@ -22,6 +23,12 @@ export interface TicketRowDto {
   updatedAt: string;
   requesterName: string;
   assigneeName: string | null;
+  // SLA
+  slaHours: number; // 0 — без SLA
+  dueAt: string | null;
+  resolvedAt: string | null;
+  slaPausedAt: string | null;
+  sla: SlaInfo;
 }
 
 export function mapTicketRow(t: TicketWithNames): TicketRowDto {
@@ -39,6 +46,11 @@ export function mapTicketRow(t: TicketWithNames): TicketRowDto {
     updatedAt: t.updatedAt.toISOString(),
     requesterName: t.createdBy.fullName,
     assigneeName: t.assignedTo?.fullName ?? null,
+    slaHours: t.slaHours ?? 0,
+    dueAt: t.dueAt?.toISOString() ?? null,
+    resolvedAt: t.resolvedAt?.toISOString() ?? null,
+    slaPausedAt: t.slaPausedAt?.toISOString() ?? null,
+    sla: slaInfo(t),
   };
 }
 
