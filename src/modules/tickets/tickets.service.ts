@@ -10,6 +10,7 @@ import {
   type ActivityEntryDto,
   type TicketRowDto,
 } from "./tickets.mapper.js";
+import { applyStatusChange, applyTypeChange, computeDueAt, slaHoursForType } from "../../services/sla.js";
 
 export interface CreateTicketInput {
   title: string;
@@ -75,8 +76,15 @@ export async function createTicket(user: User, input: CreateTicketInput): Promis
     creatorId = input.createdById;
   }
 
+  // SLA — снимок с типа заявки на момент создания.
+  const now = new Date();
+  const slaHours = await slaHoursForType(input.type);
+
   const created = await prisma.ticket.create({
     data: {
+      createdAt: now,
+      slaHours,
+      dueAt: computeDueAt(now, slaHours, 0),
       title: input.title,
       description: input.description,
       type: input.type,
@@ -101,15 +109,38 @@ async function assertExists(id: number): Promise<{ createdById: number; assigned
   return t;
 }
 
+const slaSelect = {
+  type: true,
+  status: true,
+  createdAt: true,
+  slaHours: true,
+  dueAt: true,
+  slaPausedAt: true,
+  slaPausedSec: true,
+  resolvedAt: true,
+} as const;
+
+async function slaState(id: number) {
+  const t = await prisma.ticket.findUnique({ where: { id }, select: slaSelect });
+  if (!t) throw new AppError(404, "Заявка не найдена");
+  return t;
+}
+
 export async function updateTicket(
   user: User,
   id: number,
   input: UpdateTicketInput,
 ): Promise<TicketRowDto> {
-  await assertExists(id);
+  const cur = await slaState(id);
+  // Смена типа меняет SLA: срок пересчитывается от момента создания с учётом пауз.
+  const sla =
+    input.type !== undefined && input.type !== cur.type
+      ? applyTypeChange(cur, await slaHoursForType(input.type))
+      : {};
   await prisma.ticket.update({
     where: { id },
     data: {
+      ...sla,
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.type !== undefined ? { type: input.type } : {}),
@@ -126,10 +157,12 @@ export async function setStatus(
   id: number,
   status: TicketStatus,
 ): Promise<TicketRowDto> {
-  await assertExists(id);
+  const cur = await slaState(id);
+  // Пауза SLA на «Уточнении», фиксация/сброс времени решения при закрытии/переоткрытии.
+  const sla = applyStatusChange(cur, cur.status, status, new Date());
   await prisma.ticket.update({
     where: { id },
-    data: { status, activity: { create: { kind: "status", status, authorId: user.id } } },
+    data: { ...sla, status, activity: { create: { kind: "status", status, authorId: user.id } } },
   });
   return rowById(id);
 }

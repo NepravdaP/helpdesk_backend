@@ -1,4 +1,4 @@
-import type { BookingStatus, Prisma, User } from "@prisma/client";
+import type { BookingStatus, User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../middleware/error.js";
 
@@ -99,7 +99,7 @@ export async function createBooking(user: User, input: CreateBookingInput): Prom
   }
 
   // Транзакция: проверяем пересечение и создаём бронь атомарно.
-  const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  const created = await prisma.$transaction(async (tx: typeof prisma) => {
     const room = await tx.room.findUnique({ where: { id: input.roomId }, select: { id: true } });
     if (!room) throw new AppError(404, "Переговорная не найдена");
 

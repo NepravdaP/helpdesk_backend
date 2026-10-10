@@ -102,6 +102,15 @@ model Ticket {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
+  // ── SLA ── (расчёт — src/services/sla.ts)
+  // Снимок SLA типа заявки в рабочих часах: 0 — без SLA, null — ещё не рассчитан
+  // (старые заявки досчитываются автоматически при старте бэкенда по истории статусов).
+  slaHours     Int?
+  dueAt        DateTime? // крайний срок с учётом рабочего графика и пауз
+  slaPausedAt  DateTime? // с какого момента SLA на паузе (статус «На уточнении»)
+  slaPausedSec Int       @default(0) // накопленная пауза в рабочих секундах
+  resolvedAt   DateTime? // когда заявка закрыта (сбрасывается при переоткрытии)
+
   createdBy  User            @relation("ticketCreatedBy", fields: [createdById], references: [id])
   assignedTo User?           @relation("ticketAssignedTo", fields: [assignedToId], references: [id])
   equipment  Equipment?      @relation(fields: [equipmentId], references: [id])
@@ -110,6 +119,7 @@ model Ticket {
   @@index([status])
   @@index([createdById])
   @@index([assignedToId])
+  @@index([dueAt])
   @@map("tickets")
 }
 
