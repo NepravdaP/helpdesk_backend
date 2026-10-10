@@ -235,3 +235,27 @@ model PositionWeight {
 
   @@map("position_weights")
 }
+
+// Настройки подключения к LDAP/AD, редактируемые суперадмином через веб-интерфейс
+// (Конфигурация → LDAP / Active Directory). Всегда одна строка с id = 1.
+// Если строки нет — бэкенд берёт значения из переменных окружения LDAP_* (.env).
+model LdapSettings {
+  id                    Int      @id @default(1)
+  url                   String
+  bindTemplate          String
+  searchBase            String
+  searchFilter          String
+  syncBindDn            String   @default("")
+  syncBindPasswordEnc   String   @default("") // пароль сервисной учётки, зашифрован AES-256-GCM
+  syncFilter            String
+  groupSuperadmin       String   @default("")
+  groupAdmin            String   @default("")
+  groupIt               String   @default("")
+  groupBookingManagers  String   @default("")
+  tlsRejectUnauthorized Boolean  @default(true) // false — принять самоподписанный сертификат ldaps://
+  timeoutMs             Int      @default(5000)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+
+  @@map("ldap_settings")
+}

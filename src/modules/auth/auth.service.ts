@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma.js";
 import { signToken } from "../../lib/jwt.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../middleware/error.js";
-import { ldapAuthenticate } from "../../services/ldap.js";
+import { describeLdapError, ldapAuthenticate } from "../../services/ldap.js";
 import { upsertUserFromLdap } from "../users/users.service.js";
 import { mapUser, type UserDto } from "../../lib/serialize.js";
 
@@ -22,7 +22,7 @@ export async function login(userName: string, password: string): Promise<LoginRe
   } else {
     if (!password) throw new AppError(400, "Не указан пароль");
     const profile = await ldapAuthenticate(userName, password).catch((e) => {
-      throw new AppError(401, `Ошибка входа: ${e instanceof Error ? e.message : "LDAP"}`);
+      throw new AppError(401, `Ошибка входа: ${describeLdapError(e)}`);
     });
     // Апсёрт — общая функция с массовой синхронизацией (modules/users/users.service.ts).
     ({ user } = await upsertUserFromLdap(profile));
