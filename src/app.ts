@@ -13,6 +13,11 @@ import { reportsRouter } from "./modules/reports/reports.routes.js";
 export function createApp() {
   const app = express();
 
+  // Бэкенд стоит за nginx фронтенда: берём реальный IP клиента из X-Forwarded-For,
+  // но доверяем заголовку только от прокси в локальных/частных сетях (Docker-сеть).
+  // Нужен для ограничения попыток входа — иначе все клиенты «приходят» с IP nginx.
+  app.set("trust proxy", "loopback, uniquelocal");
+
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
   app.use(express.json());
 

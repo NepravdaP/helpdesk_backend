@@ -37,6 +37,12 @@ const schema = z.object({
   SLA_WORK_START: z.string().default("09:00"),
   SLA_WORK_END: z.string().default("18:00"),
 
+  // ── Защита формы входа ──
+  // Неудачных попыток на пару «IP + логин» за окно; 0 — ограничение выключено.
+  // Держите ниже порога блокировки учётных записей в политике домена.
+  LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(0).default(5),
+  LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).default(15),
+
   AUTH_DEV_BYPASS: z
     .enum(["true", "false"])
     .default("false")
